@@ -97,7 +97,7 @@ export class TrezorSigner {
         // god of abstraction, forgive me, for I have transgressed
         const signedTx = btc.Transaction.fromHex(signedTxHex)
         const signedTxB = btc.TransactionBuilder.fromTransaction(signedTx)
-        txB.__inputs[signInputIndex] = signedTxB.__inputs[signInputIndex]
+        txB.__inputs[signInputIndex] = signedTxB.inputs[signInputIndex]
       })
   }
 
