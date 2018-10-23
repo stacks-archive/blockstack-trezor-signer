@@ -33,8 +33,7 @@
     "bigi": "^1.4.2",
     "bitcoinjs-lib": "^4.0.2",
     "blockstack": "^18.0.2",
-    "cross-fetch": "^2.2.2",
-    "trezor-connect": "^5.0.34"
+    "cross-fetch": "^2.2.2"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",

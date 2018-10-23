@@ -1,5 +1,5 @@
 import btc from 'bitcoinjs-lib'
-import TrezorConnect from 'trezor-connect'
+import TrezorConnect from './TrezorConnect'
 
 import { config as bskConfig } from 'blockstack'
 
@@ -116,21 +116,29 @@ export class TrezorSigner {
   signTransactionSkeleton(tx, signInputIndex, extra) {
     return this.prepareTransactionInfo(tx, signInputIndex, extra)
       .then((txInfo) => {
-        const coin = getCoinName()
-        return TrezorConnect.signTransaction({ inputs: txInfo.inputs,
-                                               outputs: txInfo.outputs,
-                                               coin })
-          .then(resp => {
-            if (!resp.success) {
-              if (resp.payload && resp.payload.error) {
-                throw new Error(`Failed to sign Trezor transaction: ${resp.payload.error}`)
-              } else {
-                throw new Error('Failed to sign Trezor transaction.')
-              }
-            }
-            return { tx: resp.payload.serializedTx, signatures: resp.payload.signatures }
-          })
+        return this.promisifySignTx(txInfo.inputs, txInfo.outputs, false, 'Testnet')
       })
+  }
+
+  promisifySignTx(inputs, outputs, requiredFirmware, coin) {
+    return new Promise((resolve, reject) => {
+      TrezorConnect.setCurrency('Testnet')
+      TrezorConnect.signTx(inputs,
+                            outputs, 
+                            (resp) => {
+                              console.log(resp)
+                              if (!resp.success) {
+                                if (resp && resp.error) {
+                                  reject(resp.error)
+                                  // throw new Error(`Failed to sign Trezor transaction: ${resp.payload.error}`)
+                                } else {
+                                  reject('')
+                                  // throw new Error('Failed to sign Trezor transaction.')
+                                }
+                              }
+                              resolve({ tx: resp.serialized_tx, signatures: resp.signatures })
+                            }, requiredFirmware, coin)
+    })
   }
 
   signerVersion() {
