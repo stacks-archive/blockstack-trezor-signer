@@ -29,24 +29,32 @@ export class TrezorSigner {
   }
 
   static getPublicKeys(paths): Promise<[string]> {
-    return TrezorConnect.getPublicKey({
-      bundle: paths.map((path) => ({ path })) })
-      .then((response) => {
-        if (!response.success) {
-          if (response.payload && response.payload.error) {
-            throw new Error(`Failed to load addresses from Trezor: ${response.payload.error}`)
-          } else {
-            throw new Error('Failed to load addresses from Trezor')
-          }
+    const pubkeys = []
+    let curPromise = Promise.resolve()
+    paths.forEach(path => {
+      curPromise = curPromise.then(prev => {
+        if (prev) {
+          pubkeys.push(prev)
         }
-        const values = response.payload
-        return paths.map((path) => {
-          const xpub = values.find((value) => `m/${value.serializedPath}` === path)
-                .xpub
-          const pk = btc.bip32.fromBase58(xpub).publicKey
-          return pk.toString('hex')
+        return new Promise((resolve, reject) => {
+                                     TrezorConnect.getXPubKey(path, function (result) {
+                                       if (result.success) {
+                                         setTimeout(() => {
+                                           resolve( result.xpubkey )
+                                         }, 200)
+                                       } else {
+                                         reject( result )
+                                       }
+                                     })
         })
+          .then(xpub => btc.bip32.fromBase58(xpub).publicKey.toString('hex'))
       })
+    })
+
+    return curPromise.then((pubk) => {
+      pubkeys.push(pubk)
+      return pubkeys
+    })
   }
 
   static getAddressFrom(hdpath) {
@@ -66,6 +74,8 @@ export class TrezorSigner {
       .map((input, inputIndex) => {
         const translated = TrezorSigner.translateInput(input)
         if (inputIndex === myIndex) {
+          translated['address_n'] = pathToPathArray(this.hdpath)
+        } else {
           translated['address_n'] = pathToPathArray(this.hdpath)
         }
         return translated
@@ -116,28 +126,31 @@ export class TrezorSigner {
   signTransactionSkeleton(tx, signInputIndex, extra) {
     return this.prepareTransactionInfo(tx, signInputIndex, extra)
       .then((txInfo) => {
-        return this.promisifySignTx(txInfo.inputs, txInfo.outputs, false, 'Testnet')
+        console.log(JSON.stringify(txInfo))
+        return this.promisifySignTx(txInfo.inputs, txInfo.outputs, false, 'BTC')
       })
   }
 
   promisifySignTx(inputs, outputs, requiredFirmware, coin) {
     return new Promise((resolve, reject) => {
-      TrezorConnect.setCurrency('Testnet')
       TrezorConnect.signTx(inputs,
-                            outputs, 
-                            (resp) => {
-                              console.log(resp)
-                              if (!resp.success) {
-                                if (resp && resp.error) {
-                                  reject(resp.error)
-                                  // throw new Error(`Failed to sign Trezor transaction: ${resp.payload.error}`)
-                                } else {
-                                  reject('')
-                                  // throw new Error('Failed to sign Trezor transaction.')
-                                }
-                              }
-                              resolve({ tx: resp.serialized_tx, signatures: resp.signatures })
-                            }, requiredFirmware, coin)
+                           outputs,
+                           (resp) => {
+                             console.log(resp)
+                             if (!resp.success) {
+                               if (resp && resp.error) {
+                                 reject(resp.error)
+                                 // throw new Error(`Failed to sign Trezor transaction: ${resp.payload.error}`)
+                               } else {
+                                 reject('')
+                                 // throw new Error('Failed to sign Trezor transaction.')
+                               }
+                             } else {
+                               setTimeout(() => {
+                                 resolve({ tx: resp.serialized_tx, signatures: resp.signatures })
+                               }, 200)
+                             }
+                           })
     })
   }
 

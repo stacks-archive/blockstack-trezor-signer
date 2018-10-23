@@ -34,6 +34,8 @@ export class TrezorMultiSigSigner extends TrezorSigner {
           translated['address_n'] = pathToPathArray(this.hdpath)
           translated['multisig'] = multisig
           translated['script_type'] = 'SPENDMULTISIG'
+        } else {
+          translated['address_n'] = pathToPathArray(this.hdpath)
         }
         return translated
       })
